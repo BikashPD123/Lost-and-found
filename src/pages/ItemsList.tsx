@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useItems } from '../hooks/useItems';
 import { useAuth } from '../context/AuthContext';
 import { type ItemStatus, type ItemType, type Item } from '../data/mockData';
 import { format } from 'date-fns';
 import { 
   Search, 
-  MoreVertical, 
   CheckCircle, 
   Image as ImageIcon, 
   FileX, 
@@ -16,10 +15,9 @@ import {
   X, 
   Calendar, 
   MapPin, 
-  User, 
   Tag, 
-  Check, 
-  AlertCircle 
+  Camera,
+  Link as LinkIcon
 } from 'lucide-react';
 import { generateItemReport } from '../lib/pdfGenerator';
 import { cn } from '../lib/utils';
@@ -27,6 +25,7 @@ import { cn } from '../lib/utils';
 export const ItemsList = () => {
   const { items, updateItemStatus, deleteItem, updateItem, addItem } = useItems();
   const { user } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<ItemType | 'All'>('All');
@@ -43,6 +42,7 @@ export const ItemsList = () => {
   const [newItemLocation, setNewItemLocation] = useState('');
   const [newItemDescription, setNewItemDescription] = useState('');
   const [newItemImage, setNewItemImage] = useState('');
+  const [addPhotoMode, setAddPhotoMode] = useState<'upload' | 'url'>('upload');
 
   // Edit Item form state
   const [editName, setEditName] = useState('');
@@ -50,6 +50,7 @@ export const ItemsList = () => {
   const [editDescription, setEditDescription] = useState('');
   const [editStatus, setEditStatus] = useState<ItemStatus>('Pending');
   const [editType, setEditType] = useState<ItemType>('Lost');
+  const [editImage, setEditImage] = useState('');
 
   const isAdmin = user?.role === 'Admin';
 
@@ -91,6 +92,7 @@ export const ItemsList = () => {
     setEditDescription(item.description || '');
     setEditStatus(item.status);
     setEditType(item.type);
+    setEditImage(item.image || '');
   };
 
   const handleSaveEdit = (e: React.FormEvent) => {
@@ -102,7 +104,8 @@ export const ItemsList = () => {
       location: editLocation,
       description: editDescription,
       status: editStatus,
-      type: editType
+      type: editType,
+      image: editImage || undefined
     });
 
     if (selectedItem?.id === editingItem.id) {
@@ -112,11 +115,25 @@ export const ItemsList = () => {
         location: editLocation,
         description: editDescription,
         status: editStatus,
-        type: editType
+        type: editType,
+        image: editImage || undefined
       } : null);
     }
 
     setEditingItem(null);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'add' | 'edit') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        if (target === 'add') setNewItemImage(result);
+        else setEditImage(result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleCreateItem = (e: React.FormEvent) => {
@@ -135,7 +152,6 @@ export const ItemsList = () => {
       reportedBy: user?.email || 'user@university.edu'
     });
 
-    // Reset form
     setNewItemName('');
     setNewItemLocation('');
     setNewItemDescription('');
@@ -148,10 +164,10 @@ export const ItemsList = () => {
       {/* Title & Add Item Action */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-secondary-900 dark:text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
             Items Directory
           </h1>
-          <p className="text-secondary-500 dark:text-slate-400 mt-1 text-sm sm:text-base font-medium">
+          <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm sm:text-base font-medium">
             Manage and track all {isAdmin ? 'university' : 'your'} lost and found items.
           </p>
         </div>
@@ -166,18 +182,18 @@ export const ItemsList = () => {
       </div>
 
       {/* Filter and Search Bar Container */}
-      <div className="glass-panel rounded-3xl p-4 sm:p-6 space-y-4 bg-white/60 dark:bg-slate-900/60 dark:border-slate-800">
+      <div className="bg-white/80 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 backdrop-blur-md shadow-sm">
         <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
           
           {/* Search Input */}
           <div className="relative flex-1 group">
-            <Search className="h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary-400 dark:text-slate-500 group-focus-within:text-primary-600 transition-colors" />
+            <Search className="h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 group-focus-within:text-blue-600 transition-colors" />
             <input 
               type="text" 
               placeholder="Search by name, ID, or location..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-secondary-50/70 dark:bg-slate-800/80 border border-secondary-200/80 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-secondary-900 dark:text-slate-100 placeholder-secondary-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:bg-white dark:focus:bg-slate-800 transition-all font-medium"
+              className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white dark:focus:bg-slate-800 transition-all font-medium"
             />
           </div>
           
@@ -188,7 +204,7 @@ export const ItemsList = () => {
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value as ItemType | 'All')}
-                className="w-full px-3 py-3 bg-white dark:bg-slate-800 border border-secondary-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-bold text-secondary-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
+                className="w-full px-3 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
               >
                 <option value="All">All Types</option>
                 <option value="Lost">Lost Only</option>
@@ -201,7 +217,7 @@ export const ItemsList = () => {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value as ItemStatus | 'All')}
-                className="w-full px-3 py-3 bg-white dark:bg-slate-800 border border-secondary-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-bold text-secondary-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
+                className="w-full px-3 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
               >
                 <option value="All">All Statuses</option>
                 <option value="Pending">Pending</option>
@@ -216,8 +232,8 @@ export const ItemsList = () => {
         </div>
 
         {/* Counter Summary */}
-        <div className="flex items-center justify-between text-xs text-secondary-500 dark:text-slate-400 px-1 pt-1 border-t border-secondary-100 dark:border-slate-800">
-          <span>Showing <strong className="text-secondary-800 dark:text-slate-200 font-bold">{filteredItems.length}</strong> items</span>
+        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1 pt-1 border-t border-slate-100 dark:border-slate-800">
+          <span>Showing <strong className="text-slate-800 dark:text-slate-200 font-bold">{filteredItems.length}</strong> items</span>
           {(searchTerm || filterType !== 'All' || filterStatus !== 'All') && (
             <button
               onClick={() => { setSearchTerm(''); setFilterType('All'); setFilterStatus('All'); }}
@@ -230,10 +246,10 @@ export const ItemsList = () => {
       </div>
 
       {/* Item Display Container */}
-      <div className="bg-white dark:bg-slate-900 border border-secondary-200/80 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xs">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xs">
         
         {/* MOBILE CARD VIEW (< 768px) */}
-        <div className="block md:hidden divide-y divide-secondary-100 dark:divide-slate-800">
+        <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-800">
           {filteredItems.length > 0 ? (
             filteredItems.map((item) => (
               <div key={item.id} className="p-4 space-y-3.5 hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
@@ -241,12 +257,12 @@ export const ItemsList = () => {
                   {/* Thumbnail */}
                   <div 
                     onClick={() => setSelectedItem(item)}
-                    className="h-16 w-16 rounded-2xl bg-secondary-100 dark:bg-slate-800 border border-secondary-200 dark:border-slate-700 shrink-0 overflow-hidden flex items-center justify-center cursor-pointer"
+                    className="h-16 w-16 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 overflow-hidden flex items-center justify-center cursor-pointer"
                   >
                     {item.image ? (
                       <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
                     ) : (
-                      <ImageIcon className="h-6 w-6 text-secondary-400 dark:text-slate-500" />
+                      <ImageIcon className="h-6 w-6 text-slate-400 dark:text-slate-500" />
                     )}
                   </div>
 
@@ -255,7 +271,7 @@ export const ItemsList = () => {
                     <div className="flex items-center justify-between gap-2">
                       <h3 
                         onClick={() => setSelectedItem(item)}
-                        className="font-bold text-secondary-900 dark:text-slate-100 text-sm truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
+                        className="font-bold text-slate-900 dark:text-slate-100 text-sm truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
                       >
                         {item.name}
                       </h3>
@@ -269,17 +285,17 @@ export const ItemsList = () => {
                       </span>
                     </div>
 
-                    <p className="text-secondary-400 dark:text-slate-500 text-[11px] font-semibold mt-0.5">
+                    <p className="text-slate-400 dark:text-slate-500 text-[11px] font-semibold mt-0.5">
                       #{item.id} • {item.studentId}
                     </p>
 
-                    <div className="flex items-center gap-3 text-xs text-secondary-600 dark:text-slate-400 mt-1.5">
+                    <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 mt-1.5">
                       <span className="flex items-center gap-1 truncate">
-                        <MapPin className="h-3 w-3 text-secondary-400 shrink-0" />
+                        <MapPin className="h-3 w-3 text-slate-400 shrink-0" />
                         {item.location}
                       </span>
                       <span className="flex items-center gap-1 shrink-0 text-[11px]">
-                        <Calendar className="h-3 w-3 text-secondary-400 shrink-0" />
+                        <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
                         {format(new Date(item.date), 'MMM dd')}
                       </span>
                     </div>
@@ -287,7 +303,7 @@ export const ItemsList = () => {
                 </div>
 
                 {/* Status & Actions Footer */}
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2">
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
                   <span className={cn(
                     "inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border",
                     item.status === 'Pending' ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800" :
@@ -353,7 +369,7 @@ export const ItemsList = () => {
               </div>
             ))
           ) : (
-            <div className="p-8 text-center text-secondary-500 dark:text-slate-400 text-sm">
+            <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-sm">
               No items found matching your search and filters.
             </div>
           )}
@@ -363,39 +379,39 @@ export const ItemsList = () => {
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-secondary-50/70 dark:bg-slate-800/60 border-b border-secondary-200/80 dark:border-slate-800">
-                <th className="px-6 py-4 text-[10px] font-black text-secondary-500 dark:text-slate-400 uppercase tracking-[0.2em]">Item Details</th>
-                <th className="px-6 py-4 text-[10px] font-black text-secondary-500 dark:text-slate-400 uppercase tracking-[0.2em]">Type</th>
-                <th className="px-6 py-4 text-[10px] font-black text-secondary-500 dark:text-slate-400 uppercase tracking-[0.2em]">Location</th>
-                <th className="px-6 py-4 text-[10px] font-black text-secondary-500 dark:text-slate-400 uppercase tracking-[0.2em]">Status</th>
-                <th className="px-6 py-4 text-[10px] font-black text-secondary-500 dark:text-slate-400 uppercase tracking-[0.2em]">Date Reported</th>
-                <th className="px-6 py-4 text-[10px] font-black text-secondary-500 dark:text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
+              <tr className="bg-slate-50/70 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800">
+                <th className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Item Details</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Type</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Location</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Status</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Date Reported</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-secondary-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredItems.length > 0 ? (
                 filteredItems.map((item) => (
-                  <tr key={item.id} className="hover:bg-primary-50/20 dark:hover:bg-slate-800/40 transition-colors group">
+                  <tr key={item.id} className="hover:bg-blue-50/20 dark:hover:bg-slate-800/40 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3.5">
                         <div 
                           onClick={() => setSelectedItem(item)}
-                          className="h-12 w-12 rounded-xl bg-secondary-50 dark:bg-slate-800 border border-secondary-200 dark:border-slate-700 flex-shrink-0 overflow-hidden flex items-center justify-center cursor-pointer group-hover:border-primary-300 transition-colors"
+                          className="h-12 w-12 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex-shrink-0 overflow-hidden flex items-center justify-center cursor-pointer group-hover:border-blue-400 transition-colors"
                         >
                           {item.image ? (
                             <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
                           ) : (
-                            <ImageIcon className="h-5 w-5 text-secondary-400 dark:text-slate-500" />
+                            <ImageIcon className="h-5 w-5 text-slate-400 dark:text-slate-500" />
                           )}
                         </div>
                         <div>
                           <div 
                             onClick={() => setSelectedItem(item)}
-                            className="font-bold text-secondary-900 dark:text-slate-100 text-sm cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
+                            className="font-bold text-slate-900 dark:text-slate-100 text-sm cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
                           >
                             {item.name}
                           </div>
-                          <div className="text-secondary-400 dark:text-slate-500 text-xs mt-0.5 font-semibold tracking-wider">
+                          <div className="text-slate-400 dark:text-slate-500 text-xs mt-0.5 font-semibold tracking-wider">
                             #{item.id} • {item.studentId}
                           </div>
                         </div>
@@ -411,7 +427,7 @@ export const ItemsList = () => {
                         {item.type}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-xs font-bold text-secondary-600 dark:text-slate-300">
+                    <td className="px-6 py-4 text-xs font-bold text-slate-600 dark:text-slate-300">
                       {item.location}
                     </td>
                     <td className="px-6 py-4">
@@ -425,14 +441,14 @@ export const ItemsList = () => {
                         {item.status === 'Assigned' ? `Assigned (${item.assignedTo})` : item.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-xs font-semibold text-secondary-500 dark:text-slate-400 uppercase tracking-tight">
+                    <td className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                       {format(new Date(item.date), 'MMM dd, yyyy')}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => setSelectedItem(item)}
-                          className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+                          className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
                           title="View Details"
                         >
                           <Eye className="h-4.5 w-4.5" />
@@ -441,7 +457,7 @@ export const ItemsList = () => {
                         {item.status === 'Pending' && (
                           <button 
                             onClick={() => handleClaim(item.id)}
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition-all"
+                            className="p-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition-all"
                             title="Mark Claimed"
                           >
                             <CheckCircle className="h-4.5 w-4.5" />
@@ -450,7 +466,7 @@ export const ItemsList = () => {
 
                         <button 
                           onClick={() => openEditModal(item)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-xl transition-all"
+                          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-xl transition-all"
                           title="Edit Item"
                         >
                           <Edit3 className="h-4.5 w-4.5" />
@@ -459,7 +475,7 @@ export const ItemsList = () => {
                         {isAdmin && (
                           <button 
                             onClick={() => generateItemReport(item)}
-                            className="p-2 text-secondary-600 hover:bg-secondary-50 dark:hover:bg-slate-800 rounded-xl transition-all"
+                            className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
                             title="Download PDF Report"
                           >
                             <FileDown className="h-4.5 w-4.5" />
@@ -468,7 +484,7 @@ export const ItemsList = () => {
 
                         <button 
                           onClick={() => handleDelete(item.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-all"
+                          className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-all"
                           title="Delete Item"
                         >
                           <FileX className="h-4.5 w-4.5" />
@@ -479,7 +495,7 @@ export const ItemsList = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-secondary-500 dark:text-slate-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
                     No items found matching your search and filters.
                   </td>
                 </tr>
@@ -491,8 +507,8 @@ export const ItemsList = () => {
 
       {/* VIEW DETAILS MODAL */}
       {selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl space-y-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl space-y-0 text-slate-900 dark:text-slate-100">
             {/* Header */}
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
               <div className="flex items-center gap-2">
@@ -511,7 +527,7 @@ export const ItemsList = () => {
             <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
               {/* Image Banner */}
               {selectedItem.image ? (
-                <div className="h-48 w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800">
+                <div className="h-52 w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800">
                   <img src={selectedItem.image} alt={selectedItem.name} className="w-full h-full object-cover" />
                 </div>
               ) : null}
@@ -521,37 +537,37 @@ export const ItemsList = () => {
                   <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">{selectedItem.name}</h2>
                   <span className={cn(
                     "px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider border",
-                    selectedItem.type === 'Lost' ? "bg-red-50 text-red-600 border-red-200" : "bg-blue-50 text-blue-600 border-blue-200"
+                    selectedItem.type === 'Lost' ? "bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800" : "bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800"
                   )}>
                     {selectedItem.type}
                   </span>
                 </div>
-                <p className="text-xs text-slate-400 font-bold tracking-wider mt-1">ID: #{selectedItem.id}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 font-bold tracking-wider mt-1">ID: #{selectedItem.id}</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs">
+              <div className="grid grid-cols-2 gap-3 p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs">
                 <div>
-                  <span className="text-slate-400 font-semibold block">Location</span>
+                  <span className="text-slate-400 dark:text-slate-500 font-semibold block">Location</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200 mt-0.5 block">{selectedItem.location}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 font-semibold block">Status</span>
+                  <span className="text-slate-400 dark:text-slate-500 font-semibold block">Status</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200 mt-0.5 block">{selectedItem.status}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 font-semibold block">Date Reported</span>
+                  <span className="text-slate-400 dark:text-slate-500 font-semibold block">Date Reported</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200 mt-0.5 block">{format(new Date(selectedItem.date), 'PPP')}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 font-semibold block">Reported By</span>
+                  <span className="text-slate-400 dark:text-slate-500 font-semibold block">Reported By</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200 mt-0.5 block">{selectedItem.studentName} ({selectedItem.studentId})</span>
                 </div>
               </div>
 
               {selectedItem.description && (
                 <div className="space-y-1">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Description</span>
-                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-50/50 dark:bg-slate-800/30 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Description</span>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-50/50 dark:bg-slate-800/40 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
                     {selectedItem.description}
                   </p>
                 </div>
@@ -562,7 +578,7 @@ export const ItemsList = () => {
             <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-800/40">
               <button
                 onClick={() => { setSelectedItem(null); openEditModal(selectedItem); }}
-                className="px-4 py-2.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold rounded-xl text-xs hover:bg-blue-100 transition-colors"
+                className="px-4 py-2.5 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold rounded-xl text-xs hover:bg-blue-100 transition-colors"
               >
                 Edit Details
               </button>
@@ -579,8 +595,8 @@ export const ItemsList = () => {
 
       {/* EDIT ITEM MODAL */}
       {editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl space-y-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl space-y-0 text-slate-900 dark:text-slate-100">
             {/* Header */}
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
               <h3 className="font-bold text-slate-900 dark:text-white text-base">Edit Item #{editingItem.id}</h3>
@@ -593,25 +609,25 @@ export const ItemsList = () => {
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSaveEdit} className="p-6 space-y-4">
+            <form onSubmit={handleSaveEdit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 dark:text-slate-400">Item Name</label>
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Item Name</label>
                 <input 
                   type="text" 
                   required
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 dark:text-slate-400">Category / Type</label>
+                  <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Category / Type</label>
                   <select
                     value={editType}
                     onChange={(e) => setEditType(e.target.value as ItemType)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="Lost">Lost</option>
                     <option value="Found">Found</option>
@@ -619,11 +635,11 @@ export const ItemsList = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 dark:text-slate-400">Status</label>
+                  <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Status</label>
                   <select
                     value={editStatus}
                     onChange={(e) => setEditStatus(e.target.value as ItemStatus)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="Pending">Pending</option>
                     <option value="Assigned">Assigned</option>
@@ -636,23 +652,48 @@ export const ItemsList = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 dark:text-slate-400">Location</label>
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Location</label>
                 <input 
                   type="text" 
                   required
                   value={editLocation}
                   onChange={(e) => setEditLocation(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 dark:text-slate-400">Description</label>
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Item Image (Upload File)</label>
+                <div className="flex items-center gap-3">
+                  <label className="flex-1 cursor-pointer flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
+                    <Camera className="w-4 h-4 text-blue-500" />
+                    <span>Choose Photo File</span>
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={(e) => handleFileUpload(e, 'edit')}
+                      className="hidden"
+                    />
+                  </label>
+                  {editImage && (
+                    <button
+                      type="button"
+                      onClick={() => setEditImage('')}
+                      className="text-xs text-red-500 hover:underline font-semibold"
+                    >
+                      Remove Photo
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Description</label>
                 <textarea 
                   rows={3}
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -678,8 +719,8 @@ export const ItemsList = () => {
 
       {/* REPORT NEW ITEM MODAL */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl space-y-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl space-y-0 text-slate-900 dark:text-slate-100">
             {/* Header */}
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
               <h3 className="font-bold text-slate-900 dark:text-white text-base">Report New Lost or Found Item</h3>
@@ -692,26 +733,26 @@ export const ItemsList = () => {
             </div>
 
             {/* Form */}
-            <form onSubmit={handleCreateItem} className="p-6 space-y-4">
+            <form onSubmit={handleCreateItem} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 dark:text-slate-400">Item Title / Name *</label>
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Item Title / Name *</label>
                 <input 
                   type="text" 
                   required
                   placeholder="e.g. Blue Backpack, iPhone 14, Silver Keys"
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 dark:text-slate-400">Report Type *</label>
+                  <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Report Type *</label>
                   <select
                     value={newItemType}
                     onChange={(e) => setNewItemType(e.target.value as ItemType)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="Lost">Lost Item</option>
                     <option value="Found">Found Item</option>
@@ -719,37 +760,88 @@ export const ItemsList = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 dark:text-slate-400">Location *</label>
+                  <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Location *</label>
                   <input 
                     type="text" 
                     required
                     placeholder="e.g. Main Library, Bus Stand"
                     value={newItemLocation}
                     onChange={(e) => setNewItemLocation(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 dark:text-slate-400">Image URL <span className="text-slate-400 font-normal">(optional)</span></label>
-                <input 
-                  type="url" 
-                  placeholder="https://example.com/item.jpg"
-                  value={newItemImage}
-                  onChange={(e) => setNewItemImage(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+              {/* Photo Options: File Upload vs URL */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Item Photo <span className="text-slate-400 font-normal">(optional)</span></label>
+                  <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-[11px] font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setAddPhotoMode('upload')}
+                      className={`px-2 py-0.5 rounded ${addPhotoMode === 'upload' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs' : 'text-slate-500'}`}
+                    >
+                      Upload File
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAddPhotoMode('url')}
+                      className={`px-2 py-0.5 rounded ${addPhotoMode === 'url' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs' : 'text-slate-500'}`}
+                    >
+                      Image URL
+                    </button>
+                  </div>
+                </div>
+
+                {newItemImage ? (
+                  <div className="relative h-36 w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800">
+                    <img src={newItemImage} alt="Preview" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setNewItemImage('')}
+                      className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full hover:bg-black transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : addPhotoMode === 'upload' ? (
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-blue-500 bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl text-center cursor-pointer transition-colors"
+                  >
+                    <Camera className="w-6 h-6 text-slate-400 mx-auto mb-1.5" />
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200">Click to upload photo from your device</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">PNG, JPG, WEBP max 5MB</p>
+                    <input 
+                      ref={fileInputRef}
+                      type="file" 
+                      accept="image/*"
+                      onChange={(e) => handleFileUpload(e, 'add')}
+                      className="hidden"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input 
+                      type="url" 
+                      placeholder="https://example.com/item.jpg"
+                      value={newItemImage}
+                      onChange={(e) => setNewItemImage(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 dark:text-slate-400">Description</label>
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Description</label>
                 <textarea 
                   rows={3}
                   placeholder="Provide distinct marks, color, brand, or details..."
                   value={newItemDescription}
                   onChange={(e) => setNewItemDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 

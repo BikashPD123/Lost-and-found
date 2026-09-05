@@ -15,12 +15,18 @@ import {
   Download,
   Sliders,
   LogOut,
-  Search
+  Search,
+  X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 
-export const Sidebar = () => {
+interface SidebarProps {
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
+}
+
+export const Sidebar = ({ isMobileOpen = false, onCloseMobile }: SidebarProps) => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -55,20 +61,45 @@ export const Sidebar = () => {
 
   const handleLogout = () => {
     logout();
+    if (onCloseMobile) onCloseMobile();
     navigate('/');
   };
 
-  return (
-    <aside className="w-[280px] bg-[#0B132B] dark:bg-slate-900 dark:border-slate-800 text-slate-300 hidden md:flex flex-col h-screen sticky top-0 left-0 z-50 border-r border-slate-800 select-none transition-colors duration-300">
+  const handleNavClick = (path: string, name: string) => {
+    if (onCloseMobile) onCloseMobile();
+    if (path.startsWith('#')) {
+      alert(`${name} module is available in full release.`);
+    } else {
+      navigate(path);
+    }
+  };
+
+  const sidebarContent = (
+    <>
       {/* Top Logo Section */}
-      <div className="h-20 flex items-center px-6 border-b border-slate-800/80 dark:border-slate-700/80 gap-3">
-        <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30">
-          <Search className="h-5 w-5 text-white stroke-[2.5]" />
+      <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800/80 dark:border-slate-700/80">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30">
+            <Search className="h-5 w-5 text-white stroke-[2.5]" />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-bold text-base leading-tight text-white tracking-wide">Lost & Found</span>
+            <span className="text-[11px] text-blue-400 font-semibold tracking-wider uppercase">
+              {isAdmin ? 'Admin Panel' : 'Student Portal'}
+            </span>
+          </div>
         </div>
-        <div className="flex flex-col">
-          <span className="font-bold text-base leading-tight text-white tracking-wide">Lost & Found</span>
-          <span className="text-[11px] text-blue-400 font-semibold tracking-wider uppercase">Admin Panel</span>
-        </div>
+
+        {/* Mobile Close Button */}
+        {onCloseMobile && (
+          <button
+            onClick={onCloseMobile}
+            className="md:hidden p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+            aria-label="Close sidebar menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       {/* Navigation Links Scrollable Area */}
@@ -80,12 +111,11 @@ export const Sidebar = () => {
           {mainLinks.map((link) => {
             const Icon = link.icon;
             const isActive = location.pathname === link.path || (link.path === '/app' && location.pathname === '/app/');
-            const isStub = link.path.startsWith('#');
 
             return (
               <button
                 key={link.name}
-                onClick={() => !isStub ? navigate(link.path) : alert(`${link.name} module is available in full release.`)}
+                onClick={() => handleNavClick(link.path, link.name)}
                 className={cn(
                   "w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium group relative text-left",
                   isActive
@@ -116,7 +146,10 @@ export const Sidebar = () => {
             return (
               <button
                 key={item.name}
-                onClick={item.action}
+                onClick={() => {
+                  if (onCloseMobile) onCloseMobile();
+                  item.action();
+                }}
                 className="w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium text-slate-400 hover:bg-slate-800/60 dark:hover:bg-slate-700/60 hover:text-slate-200 text-left group"
               >
                 <Icon className="h-4 w-4 shrink-0 text-slate-500 group-hover:text-amber-400 transition-colors" />
@@ -145,7 +178,7 @@ export const Sidebar = () => {
           </div>
           <button
             onClick={handleLogout}
-            className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+            className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
             title="Sign Out"
           >
             <LogOut className="h-4 w-4" />
@@ -157,6 +190,32 @@ export const Sidebar = () => {
           <p className="text-[9px] text-slate-700">All rights reserved.</p>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <aside className="w-[280px] bg-[#0B132B] dark:bg-slate-900 dark:border-slate-800 text-slate-300 hidden md:flex flex-col h-screen sticky top-0 left-0 z-50 border-r border-slate-800 select-none transition-colors duration-300">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile Drawer Overlay & Sliding Panel */}
+      {isMobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          {/* Backdrop */}
+          <div 
+            onClick={onCloseMobile}
+            className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity"
+            aria-hidden="true"
+          />
+
+          {/* Drawer Sidebar */}
+          <aside className="relative w-[280px] max-w-[85vw] bg-[#0B132B] dark:bg-slate-900 text-slate-300 flex flex-col h-full z-50 shadow-2xl select-none animate-in slide-in-from-left duration-300">
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+    </>
   );
 };

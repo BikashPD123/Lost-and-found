@@ -44,7 +44,7 @@ export const Dashboard = () => {
   });
 
   return (
-    <div className="space-y-6 pb-12 bg-[#F4F6F8] min-h-full font-sans text-slate-800 -m-6 sm:-m-8 lg:-m-10 p-6 sm:p-8 lg:p-10">
+    <div className="space-y-6 pb-12 bg-[#F4F6F8] dark:bg-slate-950 min-h-full font-sans text-slate-800 dark:text-slate-100 -m-4 sm:-m-8 lg:-m-10 p-4 sm:p-8 lg:p-10 transition-colors duration-300">
       {/* Top Title & Date Selector Row */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>

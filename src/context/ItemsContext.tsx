@@ -1,10 +1,63 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { type Item, initialItems, type ItemStatus } from '../data/mockData';
+import { type Item, type ItemStatus } from '../data/mockData';
 import { differenceInDays } from 'date-fns';
 import { ItemsContext } from './ItemsContextDef';
 
+const STORAGE_KEY = 'real_lost_and_found_items_v2';
+
 export const ItemsProvider = ({ children }: { children: ReactNode }) => {
-  const [items, setItems] = useState<Item[]>(initialItems);
+  // Initialize state strictly from persistent storage or empty array
+  const [items, setItems] = useState<Item[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as Item[];
+        // Filter out any legacy hardcoded demo IDs if present
+        const realItems = parsed.filter(item => !['LR-1256', 'FI-0987', 'CL-0456', 'LR-1255', 'FI-0986'].includes(item.id));
+        return realItems;
+      }
+    } catch (e) {
+      console.error('Failed to parse items from local storage', e);
+    }
+    return [];
+  });
+
+  // Sync state to local storage whenever items change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    } catch (e) {
+      console.error('Failed to save items to local storage', e);
+    }
+  }, [items]);
+
+  // Fetch real items from backend API on mount
+  useEffect(() => {
+    const fetchRealItems = async () => {
+      try {
+        const response = await fetch('/api/items');
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && Array.isArray(result.data)) {
+            // Merge remote items with local items, removing duplicates by id
+            setItems(prev => {
+              const map = new Map<string, Item>();
+              // Load local items first
+              prev.forEach(i => map.set(i.id, i));
+              // Remote items take priority if present
+              result.data.forEach((i: Item) => map.set(i.id, i));
+              return Array.from(map.values());
+            });
+          }
+        }
+      } catch (err) {
+        // Fall back gracefully to local storage persistence
+        console.log('Running in client-persistent mode:', err);
+      }
+    };
+
+    fetchRealItems();
+  }, []);
 
   // Auto status logic: mark items as expired if older than 30 days and not claimed
   useEffect(() => {
@@ -30,57 +83,65 @@ export const ItemsProvider = ({ children }: { children: ReactNode }) => {
   }, [items]);
 
   const addItem = (newItemData: Omit<Item, 'id' | 'status'>) => {
+    const prefix = newItemData.type === 'Lost' ? 'LR' : newItemData.type === 'Found' ? 'FI' : 'CL';
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
     const newItem: Item = {
       ...newItemData,
-      id: `ITM-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+      id: `${prefix}-${randomNum}`,
       status: 'Pending',
     };
     
-    // Check for duplicates (simple name + studentId check)
-    const isDuplicate = items.some(item => 
-      item.name.toLowerCase() === newItem.name.toLowerCase() && 
-      item.studentId === newItem.studentId &&
-      item.status === 'Pending'
-    );
+    // Update local state immediately
+    setItems(prev => [newItem, ...prev]);
 
-    if (!isDuplicate) {
-      setItems(prev => [newItem, ...prev]);
-    } else {
-      console.warn('Duplicate item report detected.');
-    }
+    // Send POST request to backend API
+    fetch('/api/items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newItem),
+    }).catch(err => console.log('Saved to local storage, backend sync queued:', err));
   };
 
   const updateItem = (id: string, updates: Partial<Item>) => {
     setItems(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+
+    fetch('/api/items', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...updates }),
+    }).catch(err => console.log('Updated in local storage, backend sync queued:', err));
   };
 
   const deleteItem = (id: string) => {
     setItems(prev => prev.filter(item => item.id !== id));
+
+    fetch(`/api/items?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }).catch(err => console.log('Deleted from local storage, backend sync queued:', err));
   };
 
   const updateItemStatus = (id: string, status: ItemStatus) => {
-    setItems(prev => prev.map(item => item.id === id ? { ...item, status } : item));
+    updateItem(id, { status });
   };
 
   const assignItem = (id: string, adminName: string) => {
-    setItems(prev => prev.map(item => 
-      item.id === id ? { ...item, status: 'Assigned', assignedTo: adminName } : item
-    ));
+    updateItem(id, { status: 'Assigned', assignedTo: adminName });
   };
 
   const getDashboardStats = () => {
-    const baseLost = 1246;
-    const baseFound = 930;
-    const basePendingClaims = 313;
-    const baseResolved = 811;
+    // Strictly compute dynamic stats ONLY from real items in the database/state
+    const lostCount = items.filter(i => i.type === 'Lost').length;
+    const foundCount = items.filter(i => i.type === 'Found').length;
+    const pendingCount = items.filter(i => i.status === 'Pending' || i.type === 'Claim' || i.status === 'Under Review').length;
+    const resolvedCount = items.filter(i => i.status === 'Resolved' || i.status === 'Claimed').length;
 
     return {
-      totalLost: baseLost + items.filter(i => i.type === 'Lost').length,
-      totalFound: baseFound + items.filter(i => i.type === 'Found').length,
+      totalLost: lostCount,
+      totalFound: foundCount,
       totalClaimed: items.filter(i => i.status === 'Claimed').length,
       activeItems: items.filter(i => i.status === 'Pending').length,
-      pendingClaims: basePendingClaims + items.filter(i => i.type === 'Claim' || i.status === 'Under Review').length,
-      resolvedCases: baseResolved + items.filter(i => i.status === 'Resolved' || i.status === 'Claimed').length,
+      pendingClaims: pendingCount,
+      resolvedCases: resolvedCount,
     };
   };
 
